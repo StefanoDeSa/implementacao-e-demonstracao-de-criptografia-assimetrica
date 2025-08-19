@@ -1,7 +1,7 @@
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
 from pathlib import Path
-import base64, hashlib
+import base64
 
 
 def exibir_menu():
@@ -53,3 +53,46 @@ def gerar_e_salvar_chaves(bits=2048, dir_keys="keys", nome_priv="rsa_priv.pem", 
         "private_key_path": caminho_priv,
         "public_key_path": caminho_pub,
     }
+
+def carregar_publica(caminho="keys/rsa_pub.pem"):
+    with open(caminho, "rb") as f:
+        return serialization.load_pem_public_key(f.read())
+
+def carregar_privada(caminho="keys/rsa_priv.pem"):
+    with open(caminho, "rb") as f:
+        return serialization.load_pem_private_key(f.read(), password=None)
+
+def criptografar(mensagem, caminho_pub="keys/rsa_pub.pem"):
+    pub = carregar_publica(caminho_pub)
+    plaintext = mensagem.encode("utf-8")
+    ciphertext = pub.encrypt(
+        plaintext,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return base64.b64encode(ciphertext).decode("utf-8")
+
+def descriptografar(ciph_b64, caminho_priv="keys/rsa_priv.pem"):
+    priv = carregar_privada(caminho_priv)
+    ciphertext = base64.b64decode(ciph_b64.encode("utf-8"))
+    plaintext = priv.decrypt(
+        ciphertext,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return plaintext.decode("utf-8")
+
+def salvar_texto(caminho, conteudo):
+    Path(caminho).parent.mkdir(parents=True, exist_ok=True)
+    with open(caminho, "w", encoding="utf-8") as f:
+        f.write(conteudo)
+
+def ler_texto(caminho):
+    with open(caminho, "r", encoding="utf-8") as f:
+        return f.read()
